@@ -1,26 +1,41 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Header from './components/Header.jsx'
 import Products from './components/Products.jsx'
 import Cart from './components/cart.jsx'
 import Checkout from './components/Checkout.jsx'
 import Confirmation from './components/Confirmation.jsx'
+import Footer from './components/Footer.jsx'
 
 export const products = [
-  { id: 1, name: 'Laptop', price: 650, category: 'Computer', image: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=600&auto=format&fit=crop' },
-  { id: 2, name: 'Mouse', price: 15, category: 'Accessories', image: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=600&auto=format&fit=crop' },
-  { id: 3, name: 'Keyboard', price: 25, category: 'Accessories', image: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=600&auto=format&fit=crop' },
-  { id: 4, name: 'Monitor', price: 120, category: 'Computer', image: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=600&auto=format&fit=crop' },
+  { id: 1, name: 'Laptop', price: 650, category: 'Computers', variant: 'Space Silver', art: 'laptop' },
+  { id: 2, name: 'Mouse', price: 15, category: 'Accessories', variant: 'Matte Graphite', art: 'mouse' },
+  { id: 3, name: 'Keyboard', price: 25, category: 'Accessories', variant: 'Obsidian Grey', art: 'keyboard' },
+  { id: 4, name: 'Monitor', price: 120, category: 'Displays', variant: 'Midnight Black', art: 'monitor' },
 ]
 
 export default function App() {
   const [page, setPage] = useState('shop')
   const [cart, setCart] = useState([])
-  const [shipping, setShipping] = useState(12)
+  const [shippingMethod, setShippingMethod] = useState('vet')
   const [order, setOrder] = useState(null)
+  const [query, setQuery] = useState('')
+  const [favorites, setFavorites] = useState([])
+  const [showFavorites, setShowFavorites] = useState(false)
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0)
   const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0)
-  const grandTotal = subtotal + shipping
+  const shippingMethods = {
+    vet: { id: 'vet', name: 'VET Express', detail: 'Vireak Buntham Express', delivery: '1–2 Business Days', price: 2 },
+    jat: { id: 'jat', name: 'J&T Express', detail: 'Nationwide Door-to-Door Courier', delivery: '1–3 Business Days', price: 1.5 },
+  }
+  const shipping = shippingMethods[shippingMethod]
+  const grandTotal = subtotal + shipping.price
+  const visibleProducts = useMemo(() => products.filter((product) => {
+    const matchesSearch = `${product.name} ${product.category} ${product.variant}`
+      .toLowerCase()
+      .includes(query.trim().toLowerCase())
+    return matchesSearch && (!showFavorites || favorites.includes(product.id))
+  }), [query, showFavorites, favorites])
 
   const addToCart = (product) => {
     setCart((current) => {
@@ -44,28 +59,53 @@ export default function App() {
     )
   }
 
+  const toggleFavorite = (id) => {
+    setFavorites((current) =>
+      current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id],
+    )
+  }
+
   const placeOrder = (customer) => {
     setOrder({
-      id: 'ORD-0001',
+      id: `ORD-${Date.now().toString().slice(-6)}`,
       customer,
-      date: new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date()),
+      date: new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date()),
       items: cart,
+      subtotal,
+      shipping,
       total: grandTotal,
     })
     setPage('confirmation')
+    setCart([])
   }
 
   return (
     <div className="app-shell">
-      <Header cartCount={cartCount} page={page} setPage={setPage} />
-      <main>
-        {page === 'shop' && <Products onAdd={addToCart} setPage={setPage} />}
+      <Header
+        cartCount={cartCount}
+        favoritesCount={favorites.length}
+        page={page}
+        query={query}
+        setQuery={setQuery}
+        setPage={setPage}
+        showFavorites={showFavorites}
+        setShowFavorites={setShowFavorites}
+      />
+      <main className="main-content">
+        {page === 'shop' && (
+          <Products
+            products={visibleProducts}
+            favorites={favorites}
+            onAdd={addToCart}
+            onToggleFavorite={toggleFavorite}
+          />
+        )}
         {page === 'cart' && (
           <Cart
             cart={cart}
             subtotal={subtotal}
             shipping={shipping}
-            grandTotal={subtotal + shipping}
+            grandTotal={grandTotal}
             updateQuantity={updateQuantity}
             setPage={setPage}
           />
@@ -75,7 +115,8 @@ export default function App() {
             cart={cart}
             subtotal={subtotal}
             shipping={shipping}
-            setShipping={setShipping}
+            shippingMethods={shippingMethods}
+            setShippingMethod={setShippingMethod}
             grandTotal={grandTotal}
             placeOrder={placeOrder}
             setPage={setPage}
@@ -85,6 +126,7 @@ export default function App() {
           <Confirmation order={order} setPage={setPage} />
         )}
       </main>
+      <Footer />
     </div>
   )
 }
